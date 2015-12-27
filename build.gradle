@@ -1,0 +1,18 @@
+group 'com.epeirogenic'
+version '1.0-SNAPSHOT'
+
+apply plugin: 'java'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+
+    compile 'org.apache.commons:commons-csv:1.2'
+    compile 'commons-cli:commons-cli:1.3.1'
+    compile 'commons-io:commons-io:2.4'
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+}
