@@ -8,15 +8,24 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.io.FilenameUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Created by philipcoates on 24/12/2015.
@@ -25,6 +34,10 @@ import java.text.SimpleDateFormat;
  *  - what adjustments to make
  */
 public class Formatter {
+
+    private final static Logger LOGGER = LoggerFactory.getLogger(Formatter.class);
+
+    private Map<Modifier, ColumnModifier> modifiers = new HashMap<>();
 
     public static void main(final String[] args) throws Exception {
 
@@ -43,20 +56,30 @@ public class Formatter {
                 output.mkdirs();
             }
 
-            final Formatter formatter = new Formatter();
-            formatter.transformCsv(filename, 4, 5);
+            final File input = new File(filename);
+            if(input.exists()) {
+                final Formatter formatter = new Formatter();
 
-        } else {
-            System.err.println("Usage: cmd -csv <csv file name>");
-            return;
+                if(input.isDirectory()) {
+                    for(final File file : input.listFiles((dir, name) -> { return name.endsWith(".csv"); })) {
+                       formatter.transformCsv(file, 4, 5);
+                    }
+                } else if(input.isFile()) {
+                    formatter.transformCsv(input, 4, 5);
+                }
+                return;
+            }
+
         }
 
+        LOGGER.error("Usage: cmd -csv <csv file name or directory (must exist)>");
     }
 
-    public void transformCsv(final String filename, final int ... columns) throws IOException, ParseException {
+    public void transformCsv(final File file, final int ... columnsToModify) throws Exception {
 
-        final Reader reader = new FileReader(filename);
-        final Writer writer = new FileWriter(String.format("output/%1$s", FilenameUtils.getName(filename)));
+        final Reader reader = new FileReader(file);
+        final String output = String.format("output/%1$s", FilenameUtils.getName(file.getName()));
+        final Writer writer = new FileWriter(output);
         final CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT.withHeader(
                 "Service",
                 "Operation",
@@ -67,32 +90,53 @@ public class Formatter {
                 "UsageValue")
         );
 
-        int i = 0;
         final Iterable<CSVRecord> records = CSVFormat.DEFAULT.withHeader().parse(reader);
+        int i = 0;
         for (final CSVRecord record : records) {
 
-            final DateModifier dateModifier = new DateModifier();
-            dateModifier.setOriginalFormat(new SimpleDateFormat("MM/dd/yy HH:mm:SS"));
-            dateModifier.setTargetFormat(new SimpleDateFormat("MMM yyyy"));
-
-            final String[] values = new String[record.size()];
-            final String fromDate = dateModifier.transformValue(record.get(4));
-            final String toDate = dateModifier.transformValue(record.get(5));
-
-            System.out.printf("Record %1$d: start: %2$s, end: %3$s\n", i++, fromDate, toDate);
-
-            csvPrinter.printRecord(
-                    record.get(0),
-                    record.get(1),
-                    record.get(2),
-                    record.get(3),
-                    fromDate,
-                    toDate,
-                    record.get(6)
+            modifiers.put(Modifier.DATE, new DateModifier()
+                    .withOriginalFormat("MM/dd/yy HH:mm:SS")
+                    .withTargetFormat("MMM yyyy")
             );
+
+            try {
+                csvPrinter.printRecord(
+                        modifyDate(0, record, columnsToModify),
+                        modifyDate(1, record, columnsToModify),
+                        modifyDate(2, record, columnsToModify),
+                        modifyDate(3, record, columnsToModify),
+                        modifyDate(4, record, columnsToModify),
+                        modifyDate(5, record, columnsToModify),
+                        modifyDate(6, record, columnsToModify)
+                );
+                i++;
+            } catch(RuntimeException e) {
+                LOGGER.error("Failed to parse {} (line {})", file.getName(), i, e);
+                throw e;
+            }
         }
 
         csvPrinter.flush();
         csvPrinter.close();
+    }
+
+    private String modifyDate(final int column, final CSVRecord record, final int[] columnsToModify) throws Exception {
+
+        return modify(column, record, columnsToModify, Modifier.DATE);
+    }
+
+    private String modify(final int column, final CSVRecord record, final int[] columnsToModify, final Modifier type)
+            throws Exception {
+
+        for(final int col : columnsToModify) {
+            if(col == column) {
+                return modifiers.get(type).transformValue(record.get(column));
+            }
+        }
+        return record.get(column);
+    }
+
+    private enum Modifier {
+        DATE
     }
 }

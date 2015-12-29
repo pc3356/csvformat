@@ -8,7 +8,7 @@ import java.util.Date;
  * Created by philipcoates on 24/12/2015.
  *
  */
-public class DateModifier {
+public class DateModifier implements ColumnModifier {
 
     private SimpleDateFormat originalFormat;
     private SimpleDateFormat targetFormat;
@@ -21,6 +21,11 @@ public class DateModifier {
         this.originalFormat = originalFormat;
     }
 
+    public DateModifier withOriginalFormat(final String originalFormat) {
+        setOriginalFormat(new SimpleDateFormat(originalFormat));
+        return this;
+    }
+
     public SimpleDateFormat getTargetFormat() {
         return targetFormat;
     }
@@ -29,6 +34,12 @@ public class DateModifier {
         this.targetFormat = targetFormat;
     }
 
+    public DateModifier withTargetFormat(final String targetFormat) {
+        setTargetFormat(new SimpleDateFormat(targetFormat));
+        return this;
+    }
+
+    @Override
     public void modifyColumn(final int columnNumber) throws Exception {
 
         validateState();
@@ -37,6 +48,7 @@ public class DateModifier {
 
     }
 
+    @Override
     public String transformValue(final String source) throws ParseException {
 
         final Date date = originalFormat.parse(source);
