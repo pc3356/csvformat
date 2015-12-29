@@ -1,5 +1,9 @@
 package com.epeirogenic.csvformat;
 
+import org.apache.commons.csv.CSVRecord;
+
+import java.text.ParseException;
+
 /**
  * Created by IntelliJ IDEA.
  * User: pjc
@@ -9,27 +13,19 @@ package com.epeirogenic.csvformat;
 public class DateColumnModification {
 
     private final int columnNumber;
-    private final String dateFormat;
 
-    private final DateModifier dateModifier = new DateModifier();
+    private final DateModifier dateModifier;
 
-    public DateColumnModification(int columnNumber, String dateFormat) {
+    public DateColumnModification(int columnNumber, String originalFormat, final String targetFormat) {
         this.columnNumber = columnNumber;
-        this.dateFormat = dateFormat;
-        dateModifier.setOriginalFormat(null);
-        dateModifier.setTargetFormat(null);
+        dateModifier = new DateModifier()
+                .withOriginalFormat(originalFormat)
+                .withTargetFormat(targetFormat);
     }
 
-    public int getColumnNumber() {
-        return columnNumber;
-    }
+    public String transform(final CSVRecord record) throws ParseException {
 
-    public String getDateFormat() {
-        return dateFormat;
-    }
-
-    public String transform(final String source) {
-
-        return null;
+        final String original = record.get(columnNumber);
+        return dateModifier.transformValue(original);
     }
 }
